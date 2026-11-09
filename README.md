@@ -5,7 +5,7 @@ Zig devkits for [zig-build](https://codeberg.org/emanspeaks/zig-build): the preb
 Two kinds live here, one release per version:
 
 - **Mirrors** of upstream Zig's devkits from `https://ziglang.org/deps/`, unchanged, so every host's devkit comes from one place.
-- **Builds** for hosts upstream does not publish, made from [zig-bootstrap](https://codeberg.org/ziglang/zig-bootstrap) on our own machines.
+- **Builds** for hosts upstream does not publish, made by this repo's workflow from [zig-build](https://codeberg.org/emanspeaks/zig-build)'s cross-build scripts.
 
 This is not upstream's zig-bootstrap, and not affiliated with the Zig project.
 
@@ -15,7 +15,9 @@ A release is tagged with the devkit's Zig version (for example `0.18.0-dev.92+1e
 
 - `zig+llvm+lld+clang-<host target>-<zig version>.tar.xz` (`.zip` for Windows hosts);
 - `SHA256SUMS` for every devkit in the release;
-- for a devkit built here, `<devkit>.json`: what it was built from and how.
+- for a devkit built here, `<devkit>.json`: its inputs (zig-build's `cross-manifest.sh`).
+
+Devkits are only ever release assets, downloaded or built by the workflows; none is stored in the repository.
 
 | Host | Source |
 | --- | --- |
@@ -26,36 +28,20 @@ A release is tagged with the devkit's Zig version (for example `0.18.0-dev.92+1e
 
 The **Mirror upstream devkits** workflow (`.github/workflows/mirror.yml`, run by hand) takes an upstream Zig branch, tag or commit. `ziglang.org/deps` has no index, so the workflow reads the hosts and the version from upstream Zig's CI scripts (`ci/*.sh`, `ci/*.ps1`) at that ref: those scripts download exactly these devkits. It fills in whatever the release does not have yet.
 
-## Building a devkit
+## Building
 
-For a host upstream does not publish, on that host:
+The **Build devkits** workflow (`.github/workflows/build.yml`, run by hand) builds the devkit for a host upstream does not publish, with zig-build's scripts, on Linux runners:
 
-```sh
-git clone https://codeberg.org/ziglang/zig-bootstrap.git
-cd zig-bootstrap
-git checkout <zig-bootstrap commit>   # zig-build's pin (ZIG_BOOTSTRAP_COMMIT)
-./build <target> baseline             # e.g. x86_64-macos-none
-```
+1. **Stage3:** `build-stage3.sh`, from upstream's devkit for the runner.
+2. **LLVM:** `build-llvm-cross.sh <target> baseline`. It is long, so it is split across two jobs that share a ccache.
+3. **Zig:** `build-zig-cross.sh <target> baseline`, zig-src at zig-build's pin. Its version names the release, so the devkit is rebuilt when that pin moves.
+4. **Assembly:** upstream's layout, the LLVM prefix plus `bin/zig` and `lib/zig`.
+5. **Smoke test:** on the host's own runner (`macos-15-intel` for `x86_64-macos-none`), with Zig and `zig cc` builds.
+6. **Publish:** into the release for its version, with its manifest and an updated `SHA256SUMS`.
 
-Then assemble the devkit from `out/`, in upstream's layout:
+A run builds only if no release already holds the same `zig_key` from zig-build's `cross-manifest.sh`, so unchanged inputs never rebuild. All build logic lives in zig-build; the workflow only schedules, packages and publishes, as [powerzig-bootstrap](https://github.com/emanspeaks/powerzig-bootstrap) does for PowerPC's LLVM.
 
-```sh
-d=zig+llvm+lld+clang-<target>-<zig version>
-cp -R out/<target>-baseline "$d"                    # the LLVM, Clang and LLD prefix
-cp out/zig-<target>-baseline/zig "$d/bin/zig"
-cp -R out/zig-<target>-baseline/lib "$d/lib/zig"
-tar -cJf "$d.tar.xz" "$d"
-```
-
-The `<zig version>` is the Zig that zig-bootstrap builds (`ZIG_VERSION` in its `build` script).
-
-On macOS:
-
-- **Compiler:** build with Apple's clang, `CC=/usr/bin/clang CXX=/usr/bin/clang++`. A nix-darwin host puts GCC first on `PATH`, and GCC fails twice here: it cannot find the SDK's `libz.tbd`, and it miscompiles `zig2`.
-- **Sleep:** run the build under `caffeinate -i`.
-- **Time:** expect several hours. About 4.5 hours on a 6-core i5-8500B at `CMAKE_BUILD_PARALLEL_LEVEL=6`, most of it the host LLVM.
-
-These steps are meant to move into zig-build as a script ([rstd#271](https://github.com/randyos-org/rstd/issues/271)), with this repo only running and publishing them, as [powerzig-bootstrap](https://github.com/emanspeaks/powerzig-bootstrap) does for PowerPC's LLVM.
+zig-bootstrap's own `build` script can make the same devkit natively on the host, including the host LLVM it builds first (about 4.5 hours on a 6-core i5-8500B). On a nix-darwin Mac, set `CC=/usr/bin/clang CXX=/usr/bin/clang++`: GCC, first on `PATH` there, cannot find the SDK's `libz.tbd` and miscompiles `zig2`. Run it under `caffeinate -i`.
 
 ## Licenses
 

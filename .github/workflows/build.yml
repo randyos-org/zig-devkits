@@ -1,0 +1,373 @@
+name: Build devkits
+
+# Builds the devkit for a host upstream Zig publishes none for ($TARGET):
+# cross-compiled LLVM, Clang and LLD and a cross-compiled Zig, made by the
+# scripts in zig-build (https://codeberg.org/emanspeaks/zig-build), assembled
+# in upstream's devkit layout, smoke-tested on the host's own runner, and
+# published to the release named for its Zig version.
+#
+# All build logic lives in zig-build; this workflow only schedules it, carries
+# results between jobs, packages and publishes. Modeled on
+# emanspeaks/powerzig-bootstrap (the cross LLVM) and randyos-org/zig-toolchain
+# (testing a cross-built host on its own runner). A run builds only if no
+# release holds a manifest with the same zig_key (cross-manifest.sh: the LLVM
+# inputs, the zig-src pin, the target and the scripts).
+#
+# The devkit's Zig is zig-src at zig-build's pin (stage3's version), so it is
+# rebuilt whenever that pin moves.
+#
+# Jobs:
+#   prepare  resolve the zig-build commit, compute keys, skip if already released
+#   host     stage3 zig for the runner (cached by host_key); its version names the release
+#   llvm-1   cross LLVM; stops itself before the 6h job limit, saving ccache
+#   llvm-2   resumes from llvm-1's ccache if llvm-1 did not finish
+#   zig      cross Zig against that LLVM, assembled with it into the devkit
+#   smoke    the devkit on the host's own runner
+#   publish  the devkit, its manifest and SHA256SUMS into release <zig version>
+
+on:
+  workflow_dispatch:
+    inputs:
+      zig_build_ref:
+        description: zig-build branch, tag or commit to build from
+        type: string
+        default: main
+      force:
+        description: Build and publish even if a release holds this zig_key
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # the GitHub mirror of https://codeberg.org/emanspeaks/zig-build, which
+  # answers 5xx now and then
+  ZIG_BUILD_URL: https://github.com/randyos-org/zig-build.git
+  # also spelled out in the zig, smoke and publish jobs' DEVKIT, since a job's
+  # env cannot read this one
+  TARGET: x86_64-macos-none
+  CPU: baseline
+  # anything built here moves between runners, so it must run on any x86_64 cpu
+  ZIG_HOST_CPU: baseline
+  STAGE3_TESTS: 0
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_BASEDIR: ${{ github.workspace }}
+  CCACHE_NOHASHDIR: true
+  CCACHE_MAXSIZE: 6G
+  CCACHE_COMPRESS: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      zig_build_commit: ${{ steps.keys.outputs.zig_build_commit }}
+      host_key: ${{ steps.keys.outputs.host_key }}
+      llvm_key: ${{ steps.keys.outputs.llvm_key }}
+      zig_key: ${{ steps.keys.outputs.zig_key }}
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out zig-build
+        run: bash .github/scripts/clone-zig-build.sh "${{ inputs.zig_build_ref || 'main' }}"
+
+      - name: Compute keys
+        id: keys
+        working-directory: zig-build
+        run: |
+          # plain assignments so a missing/failing script fails the step
+          COMMIT=$(git rev-parse HEAD)
+          HOST_KEY=$(bash ./cross-manifest.sh key host)
+          LLVM_KEY=$(bash ./cross-manifest.sh key llvm "$TARGET" "$CPU")
+          ZIG_KEY=$(bash ./cross-manifest.sh key zig "$TARGET" "$CPU")
+          [ -n "$HOST_KEY" ] && [ -n "$LLVM_KEY" ] && [ -n "$ZIG_KEY" ] || { echo "::error::empty key"; exit 1; }
+          {
+            echo "zig_build_commit=$COMMIT"
+            echo "host_key=$HOST_KEY"
+            echo "llvm_key=$LLVM_KEY"
+            echo "zig_key=$ZIG_KEY"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Skip if this zig_key is already released
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIG_KEY: ${{ steps.keys.outputs.zig_key }}
+        run: |
+          FOUND=""
+          for TAG in $(gh release list -R "$GITHUB_REPOSITORY" -L 30 --json tagName -q '.[].tagName'); do
+            KEY=$(gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p "zig+llvm+lld+clang-$TARGET-*.json" -O - 2>/dev/null \
+              | jq -r '.zig_key // empty' || true)
+            if [ -n "$KEY" ] && [ "$KEY" = "$ZIG_KEY" ]; then FOUND=$TAG; break; fi
+          done
+          if [ -n "$FOUND" ] && [ "${{ inputs.force }}" != "true" ]; then
+            echo "::notice::zig_key unchanged; already released in $FOUND"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  host:
+    needs: prepare
+    if: needs.prepare.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          zig_build_commit: ${{ needs.prepare.outputs.zig_build_commit }}
+
+      - name: Restore stage3
+        id: cache
+        uses: actions/cache/restore@v6
+        with:
+          path: zig-build/bin/stage3
+          key: stage3-${{ needs.prepare.outputs.host_key }}
+
+      - name: Build stage3
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: zig-build
+        run: bash ./build-stage3.sh
+
+      - name: Save stage3
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: zig-build/bin/stage3
+          key: stage3-${{ needs.prepare.outputs.host_key }}
+
+      # build-zig-cross.sh stamps the cross Zig with stage3's version
+      - name: Zig version
+        id: version
+        run: echo "version=$(zig-build/bin/stage3/bin/zig version)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Package stage3
+        run: tar -cf stage3.tar -C zig-build/bin stage3
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: stage3
+          path: stage3.tar
+          retention-days: 2
+
+  llvm-1:
+    needs: [prepare, host]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    outputs:
+      done: ${{ steps.build.outputs.done }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          zig_build_commit: ${{ needs.prepare.outputs.zig_build_commit }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: stage3
+      - name: Unpack stage3
+        run: mkdir -p zig-build/bin && tar -xf stage3.tar -C zig-build/bin
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-llvm-${{ needs.prepare.outputs.llvm_key }}-${{ github.run_id }}-1
+          restore-keys: |
+            ccache-llvm-${{ needs.prepare.outputs.llvm_key }}-
+
+      - name: Build cross LLVM (stops after 5h20m to leave time to save ccache)
+        id: build
+        working-directory: zig-build
+        run: |
+          set +e
+          CCACHE=ccache timeout 320m bash ./build-llvm-cross.sh "$TARGET" "$CPU"
+          rc=$?
+          set -e
+          ccache -s
+          case $rc in
+            0) echo "done=true" >> "$GITHUB_OUTPUT";;
+            124) echo "::notice::time limit reached; llvm-2 resumes from ccache"; echo "done=false" >> "$GITHUB_OUTPUT";;
+            *) exit $rc;;
+          esac
+
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-llvm-${{ needs.prepare.outputs.llvm_key }}-${{ github.run_id }}-1
+
+      - name: Package install prefix
+        if: steps.build.outputs.done == 'true'
+        run: tar -cf llvm-prefix.tar -C zig-build/build/cross "$TARGET-$CPU"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.build.outputs.done == 'true'
+        with:
+          name: llvm-prefix
+          path: llvm-prefix.tar
+          retention-days: 2
+
+  llvm-2:
+    needs: [prepare, llvm-1]
+    if: needs.llvm-1.result == 'success' && needs.llvm-1.outputs.done != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          zig_build_commit: ${{ needs.prepare.outputs.zig_build_commit }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: stage3
+      - name: Unpack stage3
+        run: mkdir -p zig-build/bin && tar -xf stage3.tar -C zig-build/bin
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-llvm-${{ needs.prepare.outputs.llvm_key }}-${{ github.run_id }}-1
+          restore-keys: |
+            ccache-llvm-${{ needs.prepare.outputs.llvm_key }}-
+
+      - name: Finish cross LLVM
+        working-directory: zig-build
+        run: |
+          CCACHE=ccache bash ./build-llvm-cross.sh "$TARGET" "$CPU"
+          ccache -s
+
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-llvm-${{ needs.prepare.outputs.llvm_key }}-${{ github.run_id }}-2
+
+      - name: Package install prefix
+        run: tar -cf llvm-prefix.tar -C zig-build/build/cross "$TARGET-$CPU"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: llvm-prefix
+          path: llvm-prefix.tar
+          retention-days: 2
+
+  zig:
+    needs: [prepare, host, llvm-1, llvm-2]
+    if: >-
+      always() &&
+      needs.prepare.outputs.should_build == 'true' &&
+      (needs.llvm-1.outputs.done == 'true' || needs.llvm-2.result == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      DEVKIT: zig+llvm+lld+clang-x86_64-macos-none-${{ needs.host.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          zig_build_commit: ${{ needs.prepare.outputs.zig_build_commit }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: stage3
+      - uses: actions/download-artifact@v8
+        with:
+          name: llvm-prefix
+      - name: Unpack stage3 and the LLVM prefix
+        run: |
+          mkdir -p zig-build/bin zig-build/build/cross
+          tar -xf stage3.tar -C zig-build/bin
+          tar -xf llvm-prefix.tar -C zig-build/build/cross
+
+      - name: Build cross Zig
+        working-directory: zig-build
+        run: bash ./build-zig-cross.sh "$TARGET" "$CPU"
+
+      # upstream's layout: the LLVM prefix, plus bin/zig and lib/zig
+      - name: Assemble the devkit
+        run: |
+          cross=zig-build/build/cross
+          cp -a "$cross/$TARGET-$CPU" "$DEVKIT"
+          mkdir -p "$DEVKIT/bin"
+          cp "$cross/zig-$TARGET-$CPU/zig" "$DEVKIT/bin/zig"
+          cp -a "$cross/zig-$TARGET-$CPU/lib" "$DEVKIT/lib/zig"
+          (cd zig-build && bash ./cross-manifest.sh json "$TARGET" "$CPU") > "$DEVKIT.json"
+          cat "$DEVKIT.json"
+          tar -cf - "$DEVKIT" | xz -T0 -9 > "$DEVKIT.tar.xz"
+          ls -l "$DEVKIT.tar.xz"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: devkit
+          path: |
+            ${{ env.DEVKIT }}.tar.xz
+            ${{ env.DEVKIT }}.json
+          retention-days: 2
+
+  smoke:
+    needs: [host, zig]
+    if: always() && needs.zig.result == 'success'
+    runs-on: macos-15-intel
+    env:
+      DEVKIT: zig+llvm+lld+clang-x86_64-macos-none-${{ needs.host.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: devkit
+
+      # the Zig runs, finds its lib/zig, and its LLVM backend, clang and lld work
+      - name: Smoke test
+        run: |
+          tar -xJf "$DEVKIT.tar.xz"
+          zig="$PWD/$DEVKIT/bin/zig"
+          "$zig" version
+          [ -f "$DEVKIT/lib/cmake/llvm/LLVMConfig.cmake" ] || { echo "::error::no LLVM prefix in the devkit"; exit 1; }
+          cd "$RUNNER_TEMP"
+          printf 'pub fn main() void {}\n' > hello.zig
+          "$zig" build-exe hello.zig && ./hello
+          printf '#include <stdio.h>\nint main(void) { puts("hello from zig cc"); return 0; }\n' > hello.c
+          "$zig" cc hello.c -o hello-c && ./hello-c
+
+  publish:
+    needs: [prepare, host, zig, smoke]
+    if: always() && needs.smoke.result == 'success'
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.host.outputs.version }}
+      DEVKIT: zig+llvm+lld+clang-x86_64-macos-none-${{ needs.host.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: devkit
+
+      - name: Publish
+        run: |
+          if ! gh release view "$VERSION" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$VERSION" -R "$GITHUB_REPOSITORY" --title "Devkits $VERSION" --notes \
+              "Devkits for Zig \`$VERSION\`. Hosts upstream Zig publishes are mirrored unchanged from https://ziglang.org/deps/; the others are built here from zig-build. Each built one has a \`.json\` manifest of its inputs. See the README."
+          fi
+          gh release upload "$VERSION" -R "$GITHUB_REPOSITORY" "$DEVKIT.tar.xz" "$DEVKIT.json" --clobber
+          # SHA256SUMS for the whole release: replace this devkit's line
+          gh release download "$VERSION" -R "$GITHUB_REPOSITORY" --pattern SHA256SUMS 2> /dev/null || : > SHA256SUMS
+          grep -vF "  $DEVKIT.tar.xz" SHA256SUMS > sums.tmp || true
+          sha256sum "$DEVKIT.tar.xz" >> sums.tmp
+          sort -k2 -o SHA256SUMS sums.tmp
+          gh release upload "$VERSION" -R "$GITHUB_REPOSITORY" SHA256SUMS --clobber

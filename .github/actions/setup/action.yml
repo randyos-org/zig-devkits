@@ -1,0 +1,32 @@
+name: Set up zig-build
+description: Free disk space, install build tools, and check out zig-build with its zig-src sources.
+inputs:
+  zig_build_commit:
+    description: zig-build commit to check out
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Free runner disk space
+      shell: bash
+      run: |
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
+          /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
+          /usr/local/julia* /usr/lib/jvm /usr/share/miniconda
+        sudo docker image prune --all --force >/dev/null 2>&1 || true
+        df -h /
+
+    - name: Install build tools
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq cmake ninja-build ccache xz-utils jq
+
+    - name: Check out zig-build
+      shell: bash
+      run: bash .github/scripts/clone-zig-build.sh "${{ inputs.zig_build_commit }}"
+
+    - name: Fetch zig-src
+      shell: bash
+      working-directory: zig-build
+      run: bash ./ci-sources.sh
