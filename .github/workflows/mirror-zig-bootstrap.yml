@@ -1,0 +1,80 @@
+name: Mirror zig-bootstrap
+
+# Keeps https://github.com/randyos-org/zig-bootstrap a copy of upstream's
+# https://codeberg.org/ziglang/zig-bootstrap, whose sources zig-build's cross
+# scripts build LLVM from (ZIG_BOOTSTRAP_URL in zig-build's cross-sources.sh).
+# Codeberg allows no new pull mirrors, so this pushes upstream's branches and
+# tags there, nightly and by hand; a night with nothing new pushes nothing.
+# The push uses the write deploy key "zig-devkits mirror" on that repository,
+# whose private half is the secret ZIG_BOOTSTRAP_MIRROR_KEY here. Before
+# zig-build pins a new zig-bootstrap commit, run this by hand if the mirror
+# lacks it.
+
+on:
+  schedule:
+    - cron: '30 4 * * *'   # nightly, 04:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  UPSTREAM: https://codeberg.org/ziglang/zig-bootstrap.git
+  MIRROR: git@github.com:randyos-org/zig-bootstrap.git
+
+jobs:
+  mirror:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set up the deploy key
+        env:
+          KEY: ${{ secrets.ZIG_BOOTSTRAP_MIRROR_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/mirror
+          chmod 600 ~/.ssh/mirror
+          # GitHub's published host keys, over its API rather than a keyscan
+          gh api meta --jq '.ssh_keys[] | "github.com " + .' > ~/.ssh/known_hosts
+          echo "GIT_SSH_COMMAND=ssh -i $HOME/.ssh/mirror -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
+
+      - name: Compare upstream and the mirror
+        id: compare
+        run: |
+          # Codeberg intermittently answers 5xx, so its reads are retried
+          for i in 1 2 3 4 5; do
+            git ls-remote --heads --tags "$UPSTREAM" > upstream.txt && break
+            [ "$i" = 5 ] && { echo "::error::could not read $UPSTREAM"; exit 1; }
+            sleep $((i * 30))
+          done
+          git ls-remote --heads --tags "$MIRROR" > mirror.txt
+          if cmp -s <(sort upstream.txt) <(sort mirror.txt); then
+            echo "the mirror is current"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            diff <(sort mirror.txt) <(sort upstream.txt) || true
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch upstream
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          git init --quiet --bare src.git
+          for i in 1 2 3 4 5; do
+            git -C src.git fetch --quiet "$UPSTREAM" '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*' && break
+            [ "$i" = 5 ] && { echo "::error::could not fetch $UPSTREAM"; exit 1; }
+            sleep $((i * 30))
+          done
+
+      # --prune drops branches and tags upstream deleted
+      - name: Push to the mirror
+        if: steps.compare.outputs.changed == 'true'
+        run: git -C src.git push --prune "$MIRROR" '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'

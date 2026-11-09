@@ -47,6 +47,10 @@ The **Mirror upstream devkits** workflow (`.github/workflows/mirror.yml`) runs o
 
 A version already mirrored is skipped. A new one is filled into a draft one devkit at a time, then published, and its hosts in `devkits.json` are pointed at it.
 
+## Mirroring zig-bootstrap
+
+The **Mirror zig-bootstrap** workflow (`.github/workflows/mirror-zig-bootstrap.yml`) keeps [randyos-org/zig-bootstrap](https://github.com/randyos-org/zig-bootstrap) a copy of upstream's [zig-bootstrap](https://codeberg.org/ziglang/zig-bootstrap), the LLVM, Clang and LLD sources zig-build's cross scripts build from. Codeberg allows no new pull mirrors, so the workflow pushes upstream's branches and tags there, nightly and by hand, with a write deploy key whose private half is the secret `ZIG_BOOTSTRAP_MIRROR_KEY`. A night with nothing new pushes nothing. Before zig-build pins a new zig-bootstrap commit, run it by hand if the mirror lacks that commit.
+
 ## Building
 
 The **Build devkits** workflow (`.github/workflows/build.yml`) runs on pushes to `main`, nightly (zig-build's pushes cannot trigger it), and by hand. It builds the devkit for a host upstream does not publish, with zig-build's scripts, on Linux runners:
