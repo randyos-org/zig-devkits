@@ -17,6 +17,7 @@ name: Build devkits
 # rebuilt whenever that pin moves.
 #
 # Jobs:
+#   changes  skip everything for a push that changes only files of no-ci.txt
 #   prepare  resolve the zig-build commit, compute keys, skip if already released
 #   host     stage3 zig for the runner (cached by host_key); its version names the release
 #   llvm-1   cross LLVM; stops itself before the 6h job limit, saving ccache
@@ -27,6 +28,13 @@ name: Build devkits
 #            <target>-<zig version>, then devkits.json on main points at it
 
 on:
+  # a push that changes only files of no-ci.txt passes without building
+  push:
+    branches: [main]
+  # zig-build's own pushes cannot trigger this repo: check nightly for a
+  # changed zig_key (an unchanged one stops at prepare)
+  schedule:
+    - cron: '0 6 * * *'   # nightly, 06:00 UTC
   workflow_dispatch:
     inputs:
       zig_build_ref:
@@ -67,7 +75,21 @@ env:
   CCACHE_COMPRESS: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      ci: ${{ steps.changes.outputs.ci }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Anything outside no-ci.txt changed?
+        id: changes
+        run: bash .github/scripts/changes.sh "${{ github.event_name }}" "${{ github.event.before }}" "${{ github.sha }}" | tee -a "$GITHUB_OUTPUT"
+
   prepare:
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-24.04
     outputs:
       zig_build_commit: ${{ steps.keys.outputs.zig_build_commit }}
@@ -111,7 +133,7 @@ jobs:
             if [ -n "$KEY" ] && [ "$KEY" = "$ZIG_KEY" ]; then FOUND=$TAG; break; fi
           done
           if [ -n "$FOUND" ] && [ "${{ inputs.force }}" != "true" ]; then
-            echo "::notice::zig_key unchanged; already released in $FOUND"
+            echo "::notice::zig_key unchanged; already released as $FOUND"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           else
             echo "should_build=true" >> "$GITHUB_OUTPUT"

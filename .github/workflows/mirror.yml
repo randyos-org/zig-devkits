@@ -9,6 +9,9 @@ name: Mirror upstream devkits
 # a time (the runner's disk holds one), and published once complete.
 
 on:
+  # a push that changes only files of no-ci.txt passes without mirroring
+  push:
+    branches: [main]
   schedule:
     - cron: '0 5 * * *'   # nightly, 05:00 UTC
   workflow_dispatch:
@@ -29,7 +32,21 @@ defaults:
     shell: bash
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      ci: ${{ steps.changes.outputs.ci }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Anything outside no-ci.txt changed?
+        id: changes
+        run: bash .github/scripts/changes.sh "${{ github.event_name }}" "${{ github.event.before }}" "${{ github.sha }}" | tee -a "$GITHUB_OUTPUT"
+
   mirror:
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-24.04
     env:
       GH_TOKEN: ${{ github.token }}
@@ -100,4 +117,7 @@ jobs:
 
       - name: Point devkits.json at them
         if: steps.list.outputs.skip != 'true'
-        run: bash .github/scripts/update-manifest.sh "devkits.json: upstream ${{ steps.list.outputs.version }}" < entries.json
+        env:
+          VERSION: ${{ steps.list.outputs.version }}
+        run: |
+          bash .github/scripts/update-manifest.sh "devkits.json: upstream $VERSION" < entries.json

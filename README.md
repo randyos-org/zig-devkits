@@ -43,13 +43,13 @@ Assets keep upstream's file names, `zig+llvm+lld+clang-<host triple>-<zig versio
 
 ## Mirroring
 
-The **Mirror upstream devkits** workflow (`.github/workflows/mirror.yml`) runs nightly against upstream Zig's `master`, or by hand for any branch, tag or commit. `ziglang.org/deps` has no index, so it reads the hosts and the version from upstream Zig's CI scripts (`ci/*.sh`, `ci/*.ps1`) at that ref: those scripts download exactly these devkits.
+The **Mirror upstream devkits** workflow (`.github/workflows/mirror.yml`) runs on pushes to `main` and nightly against upstream Zig's `master`, or by hand for any branch, tag or commit. `ziglang.org/deps` has no index, so it reads the hosts and the version from upstream Zig's CI scripts (`ci/*.sh`, `ci/*.ps1`) at that ref: those scripts download exactly these devkits.
 
 A version already mirrored is skipped. A new one is filled into a draft one devkit at a time, then published, and its hosts in `devkits.json` are pointed at it.
 
 ## Building
 
-The **Build devkits** workflow (`.github/workflows/build.yml`, run by hand) builds the devkit for a host upstream does not publish, with zig-build's scripts, on Linux runners:
+The **Build devkits** workflow (`.github/workflows/build.yml`) runs on pushes to `main`, nightly (zig-build's pushes cannot trigger it), and by hand. It builds the devkit for a host upstream does not publish, with zig-build's scripts, on Linux runners:
 
 1. **Stage3:** `build-stage3.sh`, from upstream's devkit for the runner.
 2. **LLVM:** `build-llvm-cross.sh <target> baseline`. It is long, so it is split across two jobs that share a ccache.
@@ -61,6 +61,10 @@ The **Build devkits** workflow (`.github/workflows/build.yml`, run by hand) buil
 A run builds only if no release already holds the same `zig_key` from zig-build's `cross-manifest.sh`, so unchanged inputs never rebuild. All build logic lives in zig-build; the workflow only schedules, packages and publishes, as [powerzig-bootstrap](https://github.com/emanspeaks/powerzig-bootstrap) does for PowerPC's LLVM.
 
 zig-bootstrap's own `build` script can make the same devkit natively on the host, including the host LLVM it builds first (about 4.5 hours on a 6-core i5-8500B). On a nix-darwin Mac, set `CC=/usr/bin/clang CXX=/usr/bin/clang++`: GCC, first on `PATH` there, cannot find the SDK's `libz.tbd` and miscompiles `zig2`. Run it under `caffeinate -i`.
+
+## Pushes that change nothing to build
+
+Both workflows run on every push to `main`. One that changes only files matching `no-ci.txt` (`devkits.json`, Markdown, the license and lint configs) skips their work and passes at once. The workflows' own `devkits.json` commits are pushed with `GITHUB_TOKEN`, which starts no workflow at all.
 
 ## Licenses
 

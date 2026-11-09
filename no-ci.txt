@@ -1,0 +1,8 @@
+# A push to main that changes only files matching these (bash globs, one per
+# line) runs the workflows but skips their work, so they pass at once.
+# devkits.json is the workflows' own lookup; its updates come from them.
+devkits.json
+*.md
+LICENSE
+.markdownlint.jsonc
+.markdownlint-cli2.jsonc
