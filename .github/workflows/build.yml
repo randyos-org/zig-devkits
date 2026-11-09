@@ -61,6 +61,9 @@ env:
   # the GitHub mirror of https://codeberg.org/emanspeaks/zig-build, which
   # answers 5xx now and then
   ZIG_BUILD_URL: https://github.com/randyos-org/zig-build.git
+  # zig-build's ci-sources.sh fetches zig-src (and upstream's release tags) from
+  # here: the GitHub mirror of https://codeberg.org/emanspeaks/zig
+  ZIG_SRC_URL: https://github.com/randyos-org/zig.git
   # also spelled out in the zig, smoke and publish jobs' DEVKIT, since a job's
   # env cannot read this one
   TARGET: x86_64-macos-none
