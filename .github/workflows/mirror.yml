@@ -1,0 +1,83 @@
+name: Mirror upstream devkits
+
+# Copies upstream Zig's devkits from https://ziglang.org/deps/, unchanged, into
+# the release named for their version. That site has no index: the hosts and
+# the version come from upstream Zig's own CI scripts (ci/*.sh, ci/*.ps1) at
+# `zig_ref`, which download exactly these files. Assets the release already
+# has are skipped, so rerunning only fills in what is missing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      zig_ref:
+        description: Upstream Zig (codeberg.org/ziglang/zig) branch, tag or commit whose CI scripts name the devkits
+        default: master
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  mirror:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ZIG_REF: ${{ inputs.zig_ref }}
+    steps:
+      - name: Read the devkits upstream CI uses
+        id: list
+        run: |
+          api=https://codeberg.org/api/v1/repos/ziglang/zig
+          sha=$(curl -fsSL "$api/commits?sha=$ZIG_REF&limit=1" | jq -r '.[0].sha')
+          echo "upstream zig at $sha"
+          : > devkits.txt
+          for url in $(curl -fsSL "$api/contents/ci?ref=$sha" | jq -r '.[] | select(.name | test("\\.(sh|ps1)$")) | .download_url'); do
+            script=$(curl -fsSL "$url")
+            target=$(grep -m1 -o -E '^\$?TARGET ?= ?"[^"]+"' <<< "$script" | sed -E 's/.*"([^"]+)"/\1/') || continue
+            version=$(grep -m1 -o -E 'zig\+llvm\+lld\+clang-\$TARGET-[^"]+' <<< "$script" | sed 's/.*\$TARGET-//') || continue
+            echo "$target $version" >> devkits.txt
+          done
+          sort -u -o devkits.txt devkits.txt
+          cat devkits.txt
+          versions=$(cut -d' ' -f2 devkits.txt | sort -u)
+          if [ "$(wc -l <<< "$versions")" != 1 ]; then
+            echo "::error::upstream CI names more than one devkit version: $versions"
+            exit 1
+          fi
+          echo "version=$versions" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Mirror them
+        env:
+          VERSION: ${{ steps.list.outputs.version }}
+          SHA: ${{ steps.list.outputs.sha }}
+        run: |
+          if ! gh release view "$VERSION" > /dev/null 2>&1; then
+            gh release create "$VERSION" --title "Devkits $VERSION" --notes \
+              "Upstream Zig's devkits for \`$VERSION\`, mirrored unchanged from https://ziglang.org/deps/ (the hosts upstream Zig's CI used at \`$SHA\`). Hosts upstream does not publish are built here; see the README."
+          fi
+          have=$(gh release view "$VERSION" --json assets --jq '.assets[].name')
+          if grep -qx SHA256SUMS <<< "$have"; then
+            gh release download "$VERSION" --pattern SHA256SUMS
+          else
+            : > SHA256SUMS
+          fi
+          while read -r target version; do
+            ext=tar.xz
+            case "$target" in *-windows-*) ext=zip ;; esac
+            name="zig+llvm+lld+clang-$target-$version.$ext"
+            if grep -qxF "$name" <<< "$have"; then
+              echo "have $name"
+              continue
+            fi
+            curl -fsSL --retry 5 --retry-delay 15 -o "$name" "https://ziglang.org/deps/$name"
+            sha256sum "$name" >> SHA256SUMS
+            gh release upload "$VERSION" "$name"
+            rm "$name"
+          done < devkits.txt
+          sort -k2 -u -o SHA256SUMS SHA256SUMS
+          gh release upload "$VERSION" SHA256SUMS --clobber
