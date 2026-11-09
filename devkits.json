@@ -1,3 +1,124 @@
 {
-  "devkits": {}
+  "devkits": {
+    "aarch64-freebsd-none": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-aarch64-freebsd-none-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "9e6bb16c916c60a072e080ea43f8a67260f6cf1953581c62da03f229a92487b3",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-aarch64-freebsd-none-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "aarch64-linux-musl": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-aarch64-linux-musl-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "c25acb7e17486303fdcb9e9a19e252c8dacf0575404ef1e97f508db9cb1d9965",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-aarch64-linux-musl-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "aarch64-macos-none": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-aarch64-macos-none-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "5daddeaad6e135ae4bd09d6c2b4c5a30873b58d10671c13fb8ac1af246df05e6",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-aarch64-macos-none-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "aarch64-netbsd-none": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-aarch64-netbsd-none-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "f41e0b66f9a1a08f006c825988d5370f4a6d1246458906b9adbee5c19005f113",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-aarch64-netbsd-none-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "aarch64-openbsd-none": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-aarch64-openbsd-none-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "e2fb86df5429f31f79d61c2bd467bed164ffc8e4f22ef77983b746c266a839f5",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-aarch64-openbsd-none-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "aarch64-windows-gnu": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-aarch64-windows-gnu-0.18.0-dev.92+1e1964473.zip",
+      "sha256": "606beda6f8b4936d068f18ea352a7a225ba57e0c1c22bf745f85a443ddee3fff",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-aarch64-windows-gnu-0.18.0-dev.92%2B1e1964473.zip"
+    },
+    "loongarch64-linux-musl": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-loongarch64-linux-musl-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "92074b0e00239c5d649ac50d6f999cbe2817cc0b910aa5da703d8efda8e595d8",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-loongarch64-linux-musl-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "powerpc64le-linux-musl": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-powerpc64le-linux-musl-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "c981414ae0f7afd900f4d3fc150590f68f0e11a07ef6a997598b88934abdf685",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-powerpc64le-linux-musl-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "riscv64-linux-musl": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-riscv64-linux-musl-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "6414c1704f7aefb9eee485d02f1d748e21c90a218afd5b2bd4b3e704ba03f7e5",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-riscv64-linux-musl-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "s390x-linux-musl": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-s390x-linux-musl-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "bc13f7baa1372c5918101fbd9fd8a278f141481ba1bdf2bfc6f5a3e33ea01221",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-s390x-linux-musl-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "x86_64-freebsd-none": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-x86_64-freebsd-none-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "aeafb34763844ab1e868e26a89f62a83e24e481ab076b721c6061b27cfcfad18",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-x86_64-freebsd-none-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "x86_64-linux-musl": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-x86_64-linux-musl-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "3d59a8b9ac5ed3c1a046e550f35b5fb89cb5cd5ebf177cdf1ca00ad8150994e1",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-x86_64-linux-musl-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "x86_64-netbsd-none": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-x86_64-netbsd-none-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "8d91760d33b071be2c1497a1a350c58d16d8ffb95970a2e29b9eeecd2dc1857c",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-x86_64-netbsd-none-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "x86_64-openbsd-none": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-x86_64-openbsd-none-0.18.0-dev.92+1e1964473.tar.xz",
+      "sha256": "a4a150a24511a17f3b7faeb22c4cffe1bb4ce95a8bb4445a15b6bf692d6a799f",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-x86_64-openbsd-none-0.18.0-dev.92%2B1e1964473.tar.xz"
+    },
+    "x86_64-windows-gnu": {
+      "version": "0.18.0-dev.92+1e1964473",
+      "source": "upstream",
+      "release": "upstream-0.18.0-dev.92+1e1964473",
+      "asset": "zig+llvm+lld+clang-x86_64-windows-gnu-0.18.0-dev.92+1e1964473.zip",
+      "sha256": "e23a8c67f8d40a9fdabdf0bf527ac14c6ec4dcf7021c3260cad54ab998e10537",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-x86_64-windows-gnu-0.18.0-dev.92%2B1e1964473.zip"
+    }
+  }
 }
