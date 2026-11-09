@@ -414,8 +414,12 @@ jobs:
         env:
           TAG: ${{ steps.publish.outputs.tag }}
           SUM: ${{ steps.publish.outputs.sum }}
+        # never two closing braces in a row anywhere in this file: GitHub reads
+        # them as template syntax and rejects the whole workflow, saying only
+        # "Internal server error" (actionlint does not catch it)
         run: |
           jq -n --arg t "$TARGET" --arg v "$VERSION" --arg tag "$TAG" --arg a "$DEVKIT.tar.xz" --arg m "$DEVKIT.json" --arg s "$SUM" --arg repo "$GITHUB_REPOSITORY" \
-            '{($t): {version: $v, source: "built", release: $tag, asset: $a, sha256: $s, manifest: $m,
-                     url: "https://github.com/\($repo)/releases/download/\($tag | @uri)/\($a | @uri)"}}' \
+            '{version: $v, source: "built", release: $tag, asset: $a, sha256: $s, manifest: $m,
+              url: "https://github.com/\($repo)/releases/download/\($tag | @uri)/\($a | @uri)"} as $e
+             | {($t): $e}' \
             | bash .github/scripts/update-manifest.sh "devkits.json: $TARGET $VERSION"
