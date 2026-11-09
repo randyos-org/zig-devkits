@@ -4,7 +4,7 @@ name: Build devkits
 # cross-compiled LLVM, Clang and LLD and a cross-compiled Zig, made by the
 # scripts in zig-build (https://codeberg.org/emanspeaks/zig-build), assembled
 # in upstream's devkit layout, smoke-tested on the host's own runner, and
-# published to the release named for its Zig version.
+# published as its own immutable release.
 #
 # All build logic lives in zig-build; this workflow only schedules it, carries
 # results between jobs, packages and publishes. Modeled on
@@ -23,7 +23,8 @@ name: Build devkits
 #   llvm-2   resumes from llvm-1's ccache if llvm-1 did not finish
 #   zig      cross Zig against that LLVM, assembled with it into the devkit
 #   smoke    the devkit on the host's own runner
-#   publish  the devkit, its manifest and SHA256SUMS into release <zig version>
+#   publish  the devkit, its manifest and SHA256SUMS as the immutable release
+#            <target>-<zig version>, then devkits.json on main points at it
 
 on:
   workflow_dispatch:
@@ -104,7 +105,7 @@ jobs:
           ZIG_KEY: ${{ steps.keys.outputs.zig_key }}
         run: |
           FOUND=""
-          for TAG in $(gh release list -R "$GITHUB_REPOSITORY" -L 30 --json tagName -q '.[].tagName'); do
+          for TAG in $(gh release list -R "$GITHUB_REPOSITORY" -L 100 --json tagName -q '.[].tagName | select(startswith(env.TARGET + "-"))'); do
             KEY=$(gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p "zig+llvm+lld+clang-$TARGET-*.json" -O - 2>/dev/null \
               | jq -r '.zig_key // empty' || true)
             if [ -n "$KEY" ] && [ "$KEY" = "$ZIG_KEY" ]; then FOUND=$TAG; break; fi
@@ -354,20 +355,45 @@ jobs:
       VERSION: ${{ needs.host.outputs.version }}
       DEVKIT: zig+llvm+lld+clang-x86_64-macos-none-${{ needs.host.outputs.version }}
     steps:
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v8
         with:
           name: devkit
 
+      # immutable: the release is created with every asset, never added to
       - name: Publish
+        id: publish
         run: |
-          if ! gh release view "$VERSION" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release create "$VERSION" -R "$GITHUB_REPOSITORY" --title "Devkits $VERSION" --notes \
-              "Devkits for Zig \`$VERSION\`. Hosts upstream Zig publishes are mirrored unchanged from https://ziglang.org/deps/; the others are built here from zig-build. Each built one has a \`.json\` manifest of its inputs. See the README."
-          fi
-          gh release upload "$VERSION" -R "$GITHUB_REPOSITORY" "$DEVKIT.tar.xz" "$DEVKIT.json" --clobber
-          # SHA256SUMS for the whole release: replace this devkit's line
-          gh release download "$VERSION" -R "$GITHUB_REPOSITORY" --pattern SHA256SUMS 2> /dev/null || : > SHA256SUMS
-          grep -vF "  $DEVKIT.tar.xz" SHA256SUMS > sums.tmp || true
-          sha256sum "$DEVKIT.tar.xz" >> sums.tmp
-          sort -k2 -o SHA256SUMS sums.tmp
-          gh release upload "$VERSION" -R "$GITHUB_REPOSITORY" SHA256SUMS --clobber
+          sum=$(sha256sum "$DEVKIT.tar.xz" | cut -d' ' -f1)
+          echo "$sum  $DEVKIT.tar.xz" > SHA256SUMS
+          base="$TARGET-$VERSION"
+          tag=$base
+          # a name taken by an earlier build (or reserved by a deleted
+          # immutable release, which GitHub lists nowhere) takes the next suffix
+          for n in $(seq 2 21); do
+            if gh release create "$tag" -R "$GITHUB_REPOSITORY" --latest=false \
+                --title "$TARGET devkit $VERSION" \
+                --notes "The devkit for \`$TARGET\`, Zig \`$VERSION\`, built from zig-build's cross scripts; \`$DEVKIT.json\` lists every input. Upstream Zig publishes none for this host. \`devkits.json\` on main says which devkit each host should use." \
+                "$DEVKIT.tar.xz" "$DEVKIT.json" SHA256SUMS 2> err.txt; then
+              echo "Published $tag"
+              echo "tag=$tag" >> "$GITHUB_OUTPUT"
+              echo "sum=$sum" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            cat err.txt
+            grep -qiE 'immutable release|already exists|already_exists' err.txt || exit 1
+            tag="$base.$n"
+          done
+          echo "::error::no free release tag found"
+          exit 1
+
+      - name: Point devkits.json at it
+        env:
+          TAG: ${{ steps.publish.outputs.tag }}
+          SUM: ${{ steps.publish.outputs.sum }}
+        run: |
+          jq -n --arg t "$TARGET" --arg v "$VERSION" --arg tag "$TAG" --arg a "$DEVKIT.tar.xz" --arg m "$DEVKIT.json" --arg s "$SUM" --arg repo "$GITHUB_REPOSITORY" \
+            '{($t): {version: $v, source: "built", release: $tag, asset: $a, sha256: $s, manifest: $m,
+                     url: "https://github.com/\($repo)/releases/download/\($tag | @uri)/\($a | @uri)"}}' \
+            | bash .github/scripts/update-manifest.sh "devkits.json: $TARGET $VERSION"
