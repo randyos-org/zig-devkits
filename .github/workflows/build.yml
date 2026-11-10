@@ -2,7 +2,7 @@ name: Build devkits
 
 # Builds the devkit for a host upstream Zig publishes none for ($TARGET):
 # cross-compiled LLVM, Clang and LLD and a cross-compiled Zig, made by the
-# scripts in zig-build (https://codeberg.org/emanspeaks/zig-build), assembled
+# scripts in zig-build (https://github.com/randyos-org/zig-build), assembled
 # in upstream's devkit layout, smoke-tested on the host's own runner, and
 # published as its own immutable release.
 #
@@ -58,8 +58,6 @@ defaults:
     shell: bash
 
 env:
-  # the GitHub mirror of https://codeberg.org/emanspeaks/zig-build, which
-  # answers 5xx now and then
   ZIG_BUILD_URL: https://github.com/randyos-org/zig-build.git
   # zig-build's ci-sources.sh fetches zig-src (and upstream's release tags) from
   # here: the GitHub mirror of https://codeberg.org/emanspeaks/zig

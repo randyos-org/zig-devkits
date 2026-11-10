@@ -1,11 +1,11 @@
 # zig-devkits
 
-Zig devkits for [zig-build](https://codeberg.org/emanspeaks/zig-build): the prebuilt Zig with LLVM, Clang and LLD that zig-build bootstraps our Zig from. Each one is `zig+llvm+lld+clang-<host triple>-<zig version>`, laid out like upstream's: the LLVM install prefix, plus `bin/zig` and `lib/zig`.
+Zig devkits for [zig-build](https://github.com/randyos-org/zig-build): the prebuilt Zig with LLVM, Clang and LLD that zig-build bootstraps our Zig from. Each one is `zig+llvm+lld+clang-<host triple>-<zig version>`, laid out like upstream's: the LLVM install prefix, plus `bin/zig` and `lib/zig`.
 
 Two kinds live here:
 
 - **Mirrors** of upstream Zig's devkits from `https://ziglang.org/deps/`, unchanged, so every host's devkit comes from one place.
-- **Builds** for hosts upstream does not publish, made by this repo's workflow from [zig-build](https://codeberg.org/emanspeaks/zig-build)'s cross-build scripts.
+- **Builds** for hosts upstream does not publish, made by this repo's workflow from [zig-build](https://github.com/randyos-org/zig-build)'s cross-build scripts.
 
 This is not upstream's zig-bootstrap, and not affiliated with the Zig project.
 

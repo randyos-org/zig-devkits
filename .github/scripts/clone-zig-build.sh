@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Clone zig-build (from $ZIG_BUILD_URL) at a branch, tag or commit.
 # usage: clone-zig-build.sh <ref> [dir]
-# Codeberg intermittently answers 5xx, so the clone is retried.
+# The network fails now and then, so the clone is retried.
 set -euo pipefail
 REF=${1:?usage: clone-zig-build.sh <ref> [dir]}
 DIR=${2:-zig-build}
