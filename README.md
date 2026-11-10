@@ -62,7 +62,7 @@ The **Build devkits** workflow (`.github/workflows/build.yml`) runs on pushes to
 5. **Smoke test:** on the host's own runner (`macos-15-intel` for `x86_64-macos-none`), with Zig and `zig cc` builds.
 6. **Publish:** as its own release, with its manifest and `SHA256SUMS`, then `devkits.json` points its host at it.
 
-A run builds only if no release already holds the same `zig_key` from zig-build's `cross-manifest.sh`, so unchanged inputs never rebuild. All build logic lives in zig-build; the workflow only schedules, packages and publishes, as [powerzig-bootstrap](https://github.com/emanspeaks/powerzig-bootstrap) does for PowerPC's LLVM.
+A run builds only if no release already holds the same `zig_key` from zig-build's `cross-manifest.sh`, so unchanged inputs never rebuild. All build logic lives in zig-build; the workflow only schedules, packages and publishes, as [powerzig-bootstrap](https://github.com/randyos-org/powerzig-bootstrap) does for PowerPC's LLVM.
 
 zig-bootstrap's own `build` script can make the same devkit natively on the host, including the host LLVM it builds first (about 4.5 hours on a 6-core i5-8500B). On a nix-darwin Mac, set `CC=/usr/bin/clang CXX=/usr/bin/clang++`: GCC, first on `PATH` there, cannot find the SDK's `libz.tbd` and miscompiles `zig2`. Run it under `caffeinate -i`.
 

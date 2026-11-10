@@ -8,7 +8,7 @@ name: Build devkits
 #
 # All build logic lives in zig-build; this workflow only schedules it, carries
 # results between jobs, packages and publishes. Modeled on
-# emanspeaks/powerzig-bootstrap (the cross LLVM) and randyos-org/zig-toolchain
+# randyos-org/powerzig-bootstrap (the cross LLVM) and randyos-org/zig-toolchain
 # (testing a cross-built host on its own runner). A run builds only if no
 # release holds a manifest with the same zig_key (cross-manifest.sh: the LLVM
 # inputs, the zig-src pin, the target and the scripts).
