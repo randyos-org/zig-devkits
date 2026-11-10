@@ -97,13 +97,13 @@
       "url": "https://github.com/randyos-org/zig-devkits/releases/download/upstream-0.18.0-dev.92%2B1e1964473/zig%2Bllvm%2Blld%2Bclang-x86_64-linux-musl-0.18.0-dev.92%2B1e1964473.tar.xz"
     },
     "x86_64-macos-none": {
-      "version": "0.18.0-dev.859+b5896d765",
+      "version": "0.18.0-dev.1029+1ebdf2f8f",
       "source": "built",
-      "release": "x86_64-macos-none-0.18.0-dev.859+b5896d765",
-      "asset": "zig+llvm+lld+clang-x86_64-macos-none-0.18.0-dev.859+b5896d765.tar.xz",
-      "sha256": "0aa90a34eea14769cea3aa3dfd591ef2f2352174f0582c71f273652fa74be35a",
-      "manifest": "zig+llvm+lld+clang-x86_64-macos-none-0.18.0-dev.859+b5896d765.json",
-      "url": "https://github.com/randyos-org/zig-devkits/releases/download/x86_64-macos-none-0.18.0-dev.859%2Bb5896d765/zig%2Bllvm%2Blld%2Bclang-x86_64-macos-none-0.18.0-dev.859%2Bb5896d765.tar.xz"
+      "release": "x86_64-macos-none-0.18.0-dev.1029+1ebdf2f8f",
+      "asset": "zig+llvm+lld+clang-x86_64-macos-none-0.18.0-dev.1029+1ebdf2f8f.tar.xz",
+      "sha256": "5a360a8c35deeef488886420dc9cc9ec371f422ce191930d2f7857cc3f2aa7f4",
+      "manifest": "zig+llvm+lld+clang-x86_64-macos-none-0.18.0-dev.1029+1ebdf2f8f.json",
+      "url": "https://github.com/randyos-org/zig-devkits/releases/download/x86_64-macos-none-0.18.0-dev.1029%2B1ebdf2f8f/zig%2Bllvm%2Blld%2Bclang-x86_64-macos-none-0.18.0-dev.1029%2B1ebdf2f8f.tar.xz"
     },
     "x86_64-netbsd-none": {
       "version": "0.18.0-dev.92+1e1964473",
